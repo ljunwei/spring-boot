@@ -335,10 +335,17 @@ public class SpringApplication {
 			callRunners(context, applicationArguments);
 		}
 		catch (Throwable ex) {
-			handleRunFailure(context, listeners, exceptionReporters, ex);
+			handleRunFailure(context, ex, exceptionReporters, listeners);
 			throw new IllegalStateException(ex);
 		}
-		listeners.running(context);
+
+		try {
+			listeners.running(context);
+		}
+		catch (Throwable ex) {
+			handleRunFailure(context, ex, exceptionReporters, null);
+			throw new IllegalStateException(ex);
+		}
 		return context;
 	}
 
@@ -380,7 +387,7 @@ public class SpringApplication {
 		// Load the sources
 		Set<Object> sources = getAllSources();
 		Assert.notEmpty(sources, "Sources must not be empty");
-		load(context, sources.toArray(new Object[sources.size()]));
+		load(context, sources.toArray(new Object[0]));
 		listeners.contextLoaded(context);
 	}
 
@@ -516,7 +523,7 @@ public class SpringApplication {
 		// But these ones should go first (last wins in a property key clash)
 		Set<String> profiles = new LinkedHashSet<>(this.additionalProfiles);
 		profiles.addAll(Arrays.asList(environment.getActiveProfiles()));
-		environment.setActiveProfiles(profiles.toArray(new String[profiles.size()]));
+		environment.setActiveProfiles(StringUtils.toStringArray(profiles));
 	}
 
 	private void configureIgnoreBeanInfo(ConfigurableEnvironment environment) {
@@ -546,8 +553,8 @@ public class SpringApplication {
 		if (this.bannerMode == Banner.Mode.OFF) {
 			return null;
 		}
-		ResourceLoader resourceLoader = this.resourceLoader != null ? this.resourceLoader
-				: new DefaultResourceLoader(getClassLoader());
+		ResourceLoader resourceLoader = (this.resourceLoader != null ? this.resourceLoader
+				: new DefaultResourceLoader(getClassLoader()));
 		SpringApplicationBannerPrinter bannerPrinter = new SpringApplicationBannerPrinter(
 				resourceLoader, this.banner);
 		if (this.bannerMode == Mode.LOG) {
@@ -795,13 +802,15 @@ public class SpringApplication {
 	}
 
 	private void handleRunFailure(ConfigurableApplicationContext context,
-			SpringApplicationRunListeners listeners,
+			Throwable exception,
 			Collection<SpringBootExceptionReporter> exceptionReporters,
-			Throwable exception) {
+			SpringApplicationRunListeners listeners) {
 		try {
 			try {
 				handleExitCode(context, exception);
-				listeners.failed(context, exception);
+				if (listeners != null) {
+					listeners.failed(context, exception);
+				}
 			}
 			finally {
 				reportFailure(exceptionReporters, exception);
@@ -924,36 +933,12 @@ public class SpringApplication {
 	}
 
 	/**
-	 * Returns whether this {@link SpringApplication} is running within a web environment.
-	 * @return {@code true} if running within a web environment, otherwise {@code false}.
-	 * @see #setWebEnvironment(boolean)
-	 * @deprecated since 2.0.0 in favor of {@link #getWebApplicationType()}
-	 */
-	@Deprecated
-	public boolean isWebEnvironment() {
-		return this.webApplicationType == WebApplicationType.SERVLET;
-	}
-
-	/**
 	 * Returns the type of web application that is being run.
 	 * @return the type of web application
 	 * @since 2.0.0
 	 */
 	public WebApplicationType getWebApplicationType() {
 		return this.webApplicationType;
-	}
-
-	/**
-	 * Sets if this application is running within a web environment. If not specified will
-	 * attempt to deduce the environment based on the classpath.
-	 * @param webEnvironment if the application is running in a web environment
-	 * @deprecated since 2.0.0 in favor of
-	 * {@link #setWebApplicationType(WebApplicationType)}
-	 */
-	@Deprecated
-	public void setWebEnvironment(boolean webEnvironment) {
-		this.webApplicationType = webEnvironment ? WebApplicationType.SERVLET
-				: WebApplicationType.NONE;
 	}
 
 	/**
@@ -1295,7 +1280,7 @@ public class SpringApplication {
 		}
 		catch (Exception ex) {
 			ex.printStackTrace();
-			exitCode = (exitCode == 0 ? 1 : exitCode);
+			exitCode = (exitCode != 0 ? exitCode : 1);
 		}
 		return exitCode;
 	}

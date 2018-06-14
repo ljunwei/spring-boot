@@ -40,6 +40,8 @@ import org.glassfish.jersey.server.model.Resource.Builder;
 import reactor.core.publisher.Mono;
 
 import org.springframework.boot.actuate.endpoint.InvalidEndpointRequestException;
+import org.springframework.boot.actuate.endpoint.InvocationContext;
+import org.springframework.boot.actuate.endpoint.SecurityContext;
 import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
 import org.springframework.boot.actuate.endpoint.web.EndpointMapping;
 import org.springframework.boot.actuate.endpoint.web.EndpointMediaTypes;
@@ -92,23 +94,18 @@ public class JerseyEndpointResourceFactory {
 		Builder resourceBuilder = Resource.builder()
 				.path(endpointMapping.createSubPath(requestPredicate.getPath()));
 		resourceBuilder.addMethod(requestPredicate.getHttpMethod().name())
-				.consumes(toStringArray(requestPredicate.getConsumes()))
-				.produces(toStringArray(requestPredicate.getProduces()))
+				.consumes(StringUtils.toStringArray(requestPredicate.getConsumes()))
+				.produces(StringUtils.toStringArray(requestPredicate.getProduces()))
 				.handledBy(new OperationInflector(operation,
 						!requestPredicate.getConsumes().isEmpty()));
 		return resourceBuilder.build();
-	}
-
-	private String[] toStringArray(Collection<String> collection) {
-		return collection.toArray(new String[collection.size()]);
 	}
 
 	private Resource createEndpointLinksResource(String endpointPath,
 			EndpointMediaTypes endpointMediaTypes, EndpointLinksResolver linksResolver) {
 		Builder resourceBuilder = Resource.builder().path(endpointPath);
 		resourceBuilder.addMethod("GET")
-				.produces(endpointMediaTypes.getProduced()
-						.toArray(new String[endpointMediaTypes.getProduced().size()]))
+				.produces(StringUtils.toStringArray(endpointMediaTypes.getProduced()))
 				.handledBy(new EndpointLinksInflector(linksResolver));
 		return resourceBuilder.build();
 	}
@@ -148,12 +145,9 @@ public class JerseyEndpointResourceFactory {
 			}
 			arguments.putAll(extractPathParameters(data));
 			arguments.putAll(extractQueryParameters(data));
-			Principal principal = data.getSecurityContext().getUserPrincipal();
-			if (principal != null) {
-				arguments.put("principal", principal);
-			}
 			try {
-				Object response = this.operation.invoke(arguments);
+				Object response = this.operation.invoke(new InvocationContext(
+						new JerseySecurityContext(data.getSecurityContext()), arguments));
 				return convertToJaxRsResponse(response, data.getRequest().getMethod());
 			}
 			catch (InvalidEndpointRequestException ex) {
@@ -185,7 +179,7 @@ public class JerseyEndpointResourceFactory {
 			Map<String, Object> result = new HashMap<>();
 			multivaluedMap.forEach((name, values) -> {
 				if (!CollectionUtils.isEmpty(values)) {
-					result.put(name, values.size() == 1 ? values.get(0) : values);
+					result.put(name, values.size() != 1 ? values : values.get(0));
 				}
 			});
 			return result;
@@ -274,6 +268,26 @@ public class JerseyEndpointResourceFactory {
 			Map<String, Link> links = this.linksResolver
 					.resolveLinks(request.getUriInfo().getAbsolutePath().toString());
 			return Response.ok(Collections.singletonMap("_links", links)).build();
+		}
+
+	}
+
+	private static final class JerseySecurityContext implements SecurityContext {
+
+		private final javax.ws.rs.core.SecurityContext securityContext;
+
+		private JerseySecurityContext(javax.ws.rs.core.SecurityContext securityContext) {
+			this.securityContext = securityContext;
+		}
+
+		@Override
+		public Principal getPrincipal() {
+			return this.securityContext.getUserPrincipal();
+		}
+
+		@Override
+		public boolean isUserInRole(String role) {
+			return this.securityContext.isUserInRole(role);
 		}
 
 	}

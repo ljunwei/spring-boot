@@ -49,7 +49,7 @@ public class EnvironmentPostProcessorExample implements EnvironmentPostProcessor
 			throw new IllegalArgumentException("Resource " + path + " does not exist");
 		}
 		try {
-			return this.loader.load("custom-resource", path, null);
+			return this.loader.load("custom-resource", path).get(0);
 		}
 		catch (IOException ex) {
 			throw new IllegalStateException(

@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -165,18 +166,17 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 	private void appendMessageForMatches(StringBuilder reason,
 			Map<String, Collection<String>> matches, String description) {
 		if (!matches.isEmpty()) {
-			for (Map.Entry<String, Collection<String>> match : matches.entrySet()) {
+			matches.forEach((key, value) -> {
 				if (reason.length() > 0) {
 					reason.append(" and ");
 				}
 				reason.append("found beans ");
 				reason.append(description);
 				reason.append(" '");
-				reason.append(match.getKey());
+				reason.append(key);
 				reason.append("' ");
-				reason.append(
-						StringUtils.collectionToDelimitedString(match.getValue(), ", "));
-			}
+				reason.append(StringUtils.collectionToDelimitedString(value, ", "));
+			});
 		}
 	}
 
@@ -284,7 +284,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 			collectBeanNamesForAnnotation(names, beanFactory, annotationType,
 					considerHierarchy);
 		}
-		catch (ClassNotFoundException e) {
+		catch (ClassNotFoundException ex) {
 			// Continue
 		}
 		return StringUtils.toStringArray(names);
@@ -479,7 +479,7 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 				string.append(StringUtils.collectionToCommaDelimitedString(this.types));
 			}
 			string.append("; SearchStrategy: ");
-			string.append(this.strategy.toString().toLowerCase());
+			string.append(this.strategy.toString().toLowerCase(Locale.ENGLISH));
 			string.append(")");
 			return string.toString();
 		}
@@ -502,8 +502,8 @@ class OnBeanCondition extends SpringBootCondition implements ConfigurationCondit
 
 		@Override
 		protected void validate(BeanTypeDeductionException ex) {
-			Assert.isTrue(getTypes().size() == 1, annotationName() + " annotations must "
-					+ "specify only one type (got " + getTypes() + ")");
+			Assert.isTrue(getTypes().size() == 1, () -> annotationName()
+					+ " annotations must specify only one type (got " + getTypes() + ")");
 		}
 
 	}

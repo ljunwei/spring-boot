@@ -21,6 +21,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Function;
 
+import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.amqp.RabbitMetricsAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.cache.CacheMetricsAutoConfiguration;
@@ -30,11 +31,15 @@ import org.springframework.boot.actuate.autoconfigure.metrics.export.ganglia.Gan
 import org.springframework.boot.actuate.autoconfigure.metrics.export.graphite.GraphiteMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.influx.InfluxMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.jmx.JmxMetricsExportAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.newrelic.NewRelicMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.prometheus.PrometheusMetricsExportAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.export.signalfx.SignalFxMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.simple.SimpleMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.export.statsd.StatsdMetricsExportAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.jdbc.DataSourcePoolMetricsAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.orm.jpa.HibernateMetricsAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.web.client.RestTemplateMetricsAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.metrics.web.reactive.WebClientMetricsAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.web.reactive.WebFluxMetricsAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.web.servlet.WebMvcMetricsAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -60,17 +65,21 @@ public final class MetricsRun {
 		implementations.add(GraphiteMetricsExportAutoConfiguration.class);
 		implementations.add(InfluxMetricsExportAutoConfiguration.class);
 		implementations.add(JmxMetricsExportAutoConfiguration.class);
+		implementations.add(NewRelicMetricsExportAutoConfiguration.class);
 		implementations.add(PrometheusMetricsExportAutoConfiguration.class);
 		implementations.add(SimpleMetricsExportAutoConfiguration.class);
+		implementations.add(SignalFxMetricsExportAutoConfiguration.class);
 		implementations.add(StatsdMetricsExportAutoConfiguration.class);
 		EXPORT_AUTO_CONFIGURATIONS = Collections.unmodifiableSet(implementations);
 	}
 
 	private static final AutoConfigurations AUTO_CONFIGURATIONS = AutoConfigurations.of(
-			MetricsAutoConfiguration.class, RabbitMetricsAutoConfiguration.class,
-			CacheMetricsAutoConfiguration.class,
+			MetricsAutoConfiguration.class, CompositeMeterRegistryAutoConfiguration.class,
+			RabbitMetricsAutoConfiguration.class, CacheMetricsAutoConfiguration.class,
 			DataSourcePoolMetricsAutoConfiguration.class,
+			HibernateMetricsAutoConfiguration.class,
 			RestTemplateMetricsAutoConfiguration.class,
+			WebClientMetricsAutoConfiguration.class,
 			WebFluxMetricsAutoConfiguration.class, WebMvcMetricsAutoConfiguration.class);
 
 	private MetricsRun() {
@@ -100,7 +109,7 @@ public final class MetricsRun {
 			Class<?>[] exportAutoConfigurations) {
 		for (Class<?> configuration : exportAutoConfigurations) {
 			Assert.state(EXPORT_AUTO_CONFIGURATIONS.contains(configuration),
-					"Unknown export auto-configuration " + configuration.getName());
+					() -> "Unknown export auto-configuration " + configuration.getName());
 		}
 		return contextRunner
 				.withPropertyValues("management.metrics.use-global-registry=false")

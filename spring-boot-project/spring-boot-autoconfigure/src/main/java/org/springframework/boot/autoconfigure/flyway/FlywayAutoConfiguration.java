@@ -57,6 +57,7 @@ import org.springframework.orm.jpa.AbstractEntityManagerFactoryBean;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for Flyway database migrations.
@@ -93,7 +94,7 @@ public class FlywayAutoConfiguration {
 
 	@Configuration
 	@ConditionalOnMissingBean(Flyway.class)
-	@EnableConfigurationProperties(FlywayProperties.class)
+	@EnableConfigurationProperties({ DataSourceProperties.class, FlywayProperties.class })
 	public static class FlywayConfiguration {
 
 		private final FlywayProperties properties;
@@ -137,7 +138,7 @@ public class FlywayAutoConfiguration {
 				String password = getProperty(this.properties::getPassword,
 						this.dataSourceProperties::getPassword);
 				flyway.setDataSource(url, user, password,
-						this.properties.getInitSqls().toArray(new String[0]));
+						StringUtils.toStringArray(this.properties.getInitSqls()));
 			}
 			else if (this.flywayDataSource != null) {
 				flyway.setDataSource(this.flywayDataSource);
@@ -145,8 +146,7 @@ public class FlywayAutoConfiguration {
 			else {
 				flyway.setDataSource(this.dataSource);
 			}
-			flyway.setCallbacks(this.flywayCallbacks
-					.toArray(new FlywayCallback[this.flywayCallbacks.size()]));
+			flyway.setCallbacks(this.flywayCallbacks.toArray(new FlywayCallback[0]));
 			String[] locations = new LocationResolver(flyway.getDataSource())
 					.resolveLocations(this.properties.getLocations());
 			checkLocationExists(locations);
@@ -157,7 +157,7 @@ public class FlywayAutoConfiguration {
 		private String getProperty(Supplier<String> property,
 				Supplier<String> defaultValue) {
 			String value = property.get();
-			return (value == null ? defaultValue.get() : value);
+			return (value != null ? value : defaultValue.get());
 		}
 
 		private void checkLocationExists(String... locations) {
@@ -241,7 +241,7 @@ public class FlywayAutoConfiguration {
 		}
 
 		public String[] resolveLocations(Collection<String> locations) {
-			return resolveLocations(locations.toArray(new String[locations.size()]));
+			return resolveLocations(StringUtils.toStringArray(locations));
 		}
 
 		public String[] resolveLocations(String[] locations) {
@@ -265,8 +265,7 @@ public class FlywayAutoConfiguration {
 
 		private DatabaseDriver getDatabaseDriver() {
 			try {
-				String url = (String) JdbcUtils.extractDatabaseMetaData(this.dataSource,
-						"getURL");
+				String url = JdbcUtils.extractDatabaseMetaData(this.dataSource, "getURL");
 				return DatabaseDriver.fromJdbcUrl(url);
 			}
 			catch (MetaDataAccessException ex) {

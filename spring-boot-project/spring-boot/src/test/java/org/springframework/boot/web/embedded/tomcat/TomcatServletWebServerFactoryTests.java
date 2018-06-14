@@ -18,6 +18,7 @@ package org.springframework.boot.web.embedded.tomcat;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -44,14 +45,14 @@ import org.apache.catalina.core.StandardWrapper;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.catalina.util.CharsetMapper;
 import org.apache.catalina.valves.RemoteIpValve;
+import org.apache.catalina.webresources.TomcatURLStreamHandlerFactory;
 import org.apache.jasper.servlet.JspServlet;
 import org.apache.tomcat.JarScanFilter;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 import org.springframework.boot.testsupport.rule.OutputCapture;
 import org.springframework.boot.web.server.WebServerException;
@@ -63,7 +64,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -88,6 +88,9 @@ public class TomcatServletWebServerFactoryTests
 
 	@After
 	public void restoreTccl() {
+		ReflectionTestUtils.setField(TomcatURLStreamHandlerFactory.class, "instance",
+				null);
+		ReflectionTestUtils.setField(URL.class, "factory", null);
 		Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
 	}
 
@@ -147,22 +150,14 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void contextIsAddedToHostBeforeCustomizersAreCalled() throws Exception {
+	public void contextIsAddedToHostBeforeCustomizersAreCalled() {
 		TomcatServletWebServerFactory factory = getFactory();
 		TomcatContextCustomizer customizer = mock(TomcatContextCustomizer.class);
-		willAnswer(new Answer<Void>() {
-
-			@Override
-			public Void answer(InvocationOnMock invocation) throws Throwable {
-				assertThat(((Context) invocation.getArguments()[0]).getParent())
-						.isNotNull();
-				return null;
-			}
-
-		}).given(customizer).customize(any(Context.class));
 		factory.addContextCustomizers(customizer);
 		this.webServer = factory.getWebServer();
-		verify(customizer).customize(any(Context.class));
+		ArgumentCaptor<Context> contextCaptor = ArgumentCaptor.forClass(Context.class);
+		verify(customizer).customize(contextCaptor.capture());
+		assertThat(contextCaptor.getValue().getParent()).isNotNull();
 	}
 
 	@Test
@@ -425,6 +420,17 @@ public class TomcatServletWebServerFactoryTests
 		assertThat(tldSkipSet).contains("foo.jar", "bar.jar");
 	}
 
+	@Test
+	public void customTomcatHttpOnlyCookie() {
+		TomcatServletWebServerFactory factory = getFactory();
+		factory.getSession().getCookie().setHttpOnly(false);
+		this.webServer = factory.getWebServer();
+		this.webServer.start();
+		Tomcat tomcat = ((TomcatWebServer) this.webServer).getTomcat();
+		Context context = (Context) tomcat.getHost().findChildren()[0];
+		assertThat(context.getUseHttpOnly()).isFalse();
+	}
+
 	@Override
 	protected JspServlet getJspServlet() throws ServletException {
 		Tomcat tomcat = ((TomcatWebServer) this.webServer).getTomcat();
@@ -452,7 +458,7 @@ public class TomcatServletWebServerFactoryTests
 				.getHost().findChildren()[0];
 		CharsetMapper mapper = ((TomcatEmbeddedContext) context).getCharsetMapper();
 		String charsetName = mapper.getCharset(locale);
-		return (charsetName != null) ? Charset.forName(charsetName) : null;
+		return (charsetName != null ? Charset.forName(charsetName) : null);
 	}
 
 	private void assertTimeout(TomcatServletWebServerFactory factory, int expected) {

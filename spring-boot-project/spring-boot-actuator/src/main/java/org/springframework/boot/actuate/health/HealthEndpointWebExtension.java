@@ -16,12 +16,13 @@
 
 package org.springframework.boot.actuate.health;
 
-import java.security.Principal;
+import java.util.function.Supplier;
 
+import org.springframework.boot.actuate.endpoint.SecurityContext;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.annotation.Selector;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
 import org.springframework.boot.actuate.endpoint.web.annotation.EndpointWebExtension;
-import org.springframework.lang.Nullable;
 
 /**
  * {@link EndpointWebExtension} for the {@link HealthEndpoint}.
@@ -32,39 +33,47 @@ import org.springframework.lang.Nullable;
  * @author Phillip Webb
  * @author Eddú Meléndez
  * @author Madhura Bhave
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
 @EndpointWebExtension(endpoint = HealthEndpoint.class)
 public class HealthEndpointWebExtension {
 
-	private final HealthIndicator delegate;
+	private final HealthEndpoint delegate;
 
-	private final HealthStatusHttpMapper statusHttpMapper;
+	private final HealthWebEndpointResponseMapper responseMapper;
 
-	private final ShowDetails showDetails;
-
-	public HealthEndpointWebExtension(HealthIndicator delegate,
-			HealthStatusHttpMapper statusHttpMapper, ShowDetails showDetails) {
+	public HealthEndpointWebExtension(HealthEndpoint delegate,
+			HealthWebEndpointResponseMapper responseMapper) {
 		this.delegate = delegate;
-		this.statusHttpMapper = statusHttpMapper;
-		this.showDetails = showDetails;
+		this.responseMapper = responseMapper;
 	}
 
 	@ReadOperation
-	public WebEndpointResponse<Health> getHealth(@Nullable Principal principal) {
-		return getHealth(principal, this.showDetails);
+	public WebEndpointResponse<Health> health(SecurityContext securityContext) {
+		return this.responseMapper.map(this.delegate.health(), securityContext);
 	}
 
-	public WebEndpointResponse<Health> getHealth(Principal principal,
+	@ReadOperation
+	public WebEndpointResponse<Health> healthForComponent(SecurityContext securityContext,
+			@Selector String component) {
+		Supplier<Health> health = () -> this.delegate.healthForComponent(component);
+		return this.responseMapper.mapDetails(health, securityContext);
+	}
+
+	@ReadOperation
+	public WebEndpointResponse<Health> healthForComponentInstance(
+			SecurityContext securityContext, @Selector String component,
+			@Selector String instance) {
+		Supplier<Health> health = () -> this.delegate
+				.healthForComponentInstance(component, instance);
+		return this.responseMapper.mapDetails(health, securityContext);
+	}
+
+	public WebEndpointResponse<Health> getHealth(SecurityContext securityContext,
 			ShowDetails showDetails) {
-		Health health = this.delegate.health();
-		Integer status = this.statusHttpMapper.mapStatus(health.getStatus());
-		if (this.showDetails == ShowDetails.NEVER
-				|| (this.showDetails == ShowDetails.WHEN_AUTHENTICATED
-						&& principal == null)) {
-			health = Health.status(health.getStatus()).build();
-		}
-		return new WebEndpointResponse<>(health, status);
+		return this.responseMapper.map(this.delegate.health(), securityContext,
+				showDetails);
 	}
 
 }

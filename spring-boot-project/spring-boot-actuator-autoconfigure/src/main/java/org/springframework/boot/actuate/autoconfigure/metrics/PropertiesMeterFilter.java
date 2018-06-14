@@ -19,12 +19,15 @@ package org.springframework.boot.actuate.autoconfigure.metrics;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Id;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.config.MeterFilterReply;
-import io.micrometer.core.instrument.histogram.HistogramConfig;
+import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsProperties.Distribution;
 import org.springframework.util.Assert;
@@ -35,17 +38,32 @@ import org.springframework.util.StringUtils;
  *
  * @author Jon Schneider
  * @author Phillip Webb
+ * @author Stephane Nicoll
  * @since 2.0.0
  */
 public class PropertiesMeterFilter implements MeterFilter {
 
 	private static final ServiceLevelAgreementBoundary[] EMPTY_SLA = {};
 
-	private MetricsProperties properties;
+	private final MetricsProperties properties;
+
+	private final MeterFilter mapFilter;
 
 	public PropertiesMeterFilter(MetricsProperties properties) {
 		Assert.notNull(properties, "Properties must not be null");
 		this.properties = properties;
+		this.mapFilter = createMapFilter(properties.getTags());
+	}
+
+	private static MeterFilter createMapFilter(Map<String, String> tags) {
+		if (tags.isEmpty()) {
+			return new MeterFilter() {
+			};
+		}
+		Tags commonTags = Tags.of(tags.entrySet().stream()
+				.map((entry) -> Tag.of(entry.getKey(), entry.getValue()))
+				.collect(Collectors.toList()));
+		return MeterFilter.commonTags(commonTags);
 	}
 
 	@Override
@@ -55,8 +73,15 @@ public class PropertiesMeterFilter implements MeterFilter {
 	}
 
 	@Override
-	public HistogramConfig configure(Meter.Id id, HistogramConfig config) {
-		HistogramConfig.Builder builder = HistogramConfig.builder();
+	public Id map(Id id) {
+		return this.mapFilter.map(id);
+	}
+
+	@Override
+	public DistributionStatisticConfig configure(Meter.Id id,
+			DistributionStatisticConfig config) {
+		DistributionStatisticConfig.Builder builder = DistributionStatisticConfig
+				.builder();
 		Distribution distribution = this.properties.getDistribution();
 		builder.percentilesHistogram(
 				lookup(distribution.getPercentilesHistogram(), id, null));
@@ -66,10 +91,10 @@ public class PropertiesMeterFilter implements MeterFilter {
 	}
 
 	private long[] convertSla(Meter.Type meterType, ServiceLevelAgreementBoundary[] sla) {
-		long[] converted = Arrays.stream(sla == null ? EMPTY_SLA : sla)
+		long[] converted = Arrays.stream(sla != null ? sla : EMPTY_SLA)
 				.map((candidate) -> candidate.getValue(meterType))
 				.filter(Objects::nonNull).mapToLong(Long::longValue).toArray();
-		return (converted.length == 0 ? null : converted);
+		return (converted.length != 0 ? converted : null);
 	}
 
 	private <T> T lookup(Map<String, T> values, Id id, T defaultValue) {
@@ -80,7 +105,7 @@ public class PropertiesMeterFilter implements MeterFilter {
 				return result;
 			}
 			int lastDot = name.lastIndexOf('.');
-			name = lastDot == -1 ? "" : name.substring(0, lastDot);
+			name = (lastDot != -1 ? name.substring(0, lastDot) : "");
 		}
 		return values.getOrDefault("all", defaultValue);
 	}

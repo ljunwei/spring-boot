@@ -112,8 +112,7 @@ class ImportsContextCustomizer implements ContextCustomizer {
 	private BeanDefinition registerBean(BeanDefinitionRegistry registry,
 			AnnotatedBeanDefinitionReader reader, String beanName, Class<?> type) {
 		reader.registerBean(type, beanName);
-		BeanDefinition definition = registry.getBeanDefinition(beanName);
-		return definition;
+		return registry.getBeanDefinition(beanName);
 	}
 
 	@Override
@@ -169,10 +168,10 @@ class ImportsContextCustomizer implements ContextCustomizer {
 		public String[] selectImports(AnnotationMetadata importingClassMetadata) {
 			BeanDefinition definition = this.beanFactory
 					.getBeanDefinition(ImportsConfiguration.BEAN_NAME);
-			Object testClass = (definition == null ? null
-					: definition.getAttribute(TEST_CLASS_ATTRIBUTE));
-			return (testClass == null ? NO_IMPORTS
-					: new String[] { ((Class<?>) testClass).getName() });
+			Object testClass = (definition != null
+					? definition.getAttribute(TEST_CLASS_ATTRIBUTE) : null);
+			return (testClass != null ? new String[] { ((Class<?>) testClass).getName() }
+					: NO_IMPORTS);
 		}
 
 	}
@@ -354,6 +353,7 @@ class ImportsContextCustomizer implements ContextCustomizer {
 		public String toString() {
 			return this.key.toString();
 		}
+
 	}
 
 	/**

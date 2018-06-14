@@ -17,12 +17,13 @@
 package org.springframework.boot.actuate.autoconfigure.metrics.jdbc;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 
 import javax.sql.DataSource;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
@@ -31,10 +32,11 @@ import org.springframework.boot.actuate.metrics.jdbc.DataSourcePoolMetrics;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.jdbc.metadata.DataSourcePoolMetadataProvider;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
@@ -48,50 +50,63 @@ import org.springframework.util.StringUtils;
 @Configuration
 @AutoConfigureAfter({ MetricsAutoConfiguration.class, DataSourceAutoConfiguration.class,
 		SimpleMetricsExportAutoConfiguration.class })
-@ConditionalOnBean({ DataSource.class, DataSourcePoolMetadataProvider.class,
-		MeterRegistry.class })
-@ConditionalOnProperty(value = "management.metrics.jdbc.instrument", matchIfMissing = true)
-@EnableConfigurationProperties(JdbcMetricsProperties.class)
+@ConditionalOnClass({ DataSource.class, MeterRegistry.class })
+@ConditionalOnBean({ DataSource.class, MeterRegistry.class })
 public class DataSourcePoolMetricsAutoConfiguration {
 
-	private static final String DATASOURCE_SUFFIX = "dataSource";
+	@Configuration
+	@ConditionalOnBean(DataSourcePoolMetadataProvider.class)
+	static class DataSourcePoolMetadataMetricsConfiguration {
 
-	private final MeterRegistry registry;
+		private static final String DATASOURCE_SUFFIX = "dataSource";
 
-	private final Collection<DataSourcePoolMetadataProvider> metadataProviders;
+		private final MeterRegistry registry;
 
-	private final String metricName;
+		private final Collection<DataSourcePoolMetadataProvider> metadataProviders;
 
-	public DataSourcePoolMetricsAutoConfiguration(MeterRegistry registry,
-			Collection<DataSourcePoolMetadataProvider> metadataProviders,
-			JdbcMetricsProperties jdbcMetricsProperties) {
-		this.registry = registry;
-		this.metadataProviders = metadataProviders;
-		this.metricName = jdbcMetricsProperties.getMetricName();
-	}
-
-	@Autowired
-	public void bindDataSourcesToRegistry(Map<String, DataSource> dataSources) {
-		dataSources.forEach(this::bindDataSourceToRegistry);
-	}
-
-	private void bindDataSourceToRegistry(String beanName, DataSource dataSource) {
-		String dataSourceName = getDataSourceName(beanName);
-		new DataSourcePoolMetrics(dataSource, this.metadataProviders, this.metricName,
-				Tags.of("name", dataSourceName)).bindTo(this.registry);
-	}
-
-	/**
-	 * Get the name of a DataSource based on its {@code beanName}.
-	 * @param beanName the name of the data source bean
-	 * @return a name for the given data source
-	 */
-	private String getDataSourceName(String beanName) {
-		if (beanName.length() > DATASOURCE_SUFFIX.length()
-				&& StringUtils.endsWithIgnoreCase(beanName, DATASOURCE_SUFFIX)) {
-			return beanName.substring(0, beanName.length() - DATASOURCE_SUFFIX.length());
+		DataSourcePoolMetadataMetricsConfiguration(MeterRegistry registry,
+				Collection<DataSourcePoolMetadataProvider> metadataProviders) {
+			this.registry = registry;
+			this.metadataProviders = metadataProviders;
 		}
-		return beanName;
+
+		@Autowired
+		public void bindDataSourcesToRegistry(Map<String, DataSource> dataSources) {
+			dataSources.forEach(this::bindDataSourceToRegistry);
+		}
+
+		private void bindDataSourceToRegistry(String beanName, DataSource dataSource) {
+			String dataSourceName = getDataSourceName(beanName);
+			new DataSourcePoolMetrics(dataSource, this.metadataProviders, dataSourceName,
+					Collections.emptyList()).bindTo(this.registry);
+		}
+
+		/**
+		 * Get the name of a DataSource based on its {@code beanName}.
+		 * @param beanName the name of the data source bean
+		 * @return a name for the given data source
+		 */
+		private String getDataSourceName(String beanName) {
+			if (beanName.length() > DATASOURCE_SUFFIX.length()
+					&& StringUtils.endsWithIgnoreCase(beanName, DATASOURCE_SUFFIX)) {
+				return beanName.substring(0,
+						beanName.length() - DATASOURCE_SUFFIX.length());
+			}
+			return beanName;
+		}
+
+	}
+
+	@Configuration
+	@ConditionalOnClass(HikariDataSource.class)
+	static class HikariDataSourceMetricsConfiguration {
+
+		@Bean
+		public static HikariDataSourceMetricsPostProcessor hikariDataSourceMetricsPostProcessor(
+				ApplicationContext applicationContext) {
+			return new HikariDataSourceMetricsPostProcessor(applicationContext);
+		}
+
 	}
 
 }

@@ -39,8 +39,9 @@ public class WebFluxSecurityConfigurationTests {
 	@Test
 	public void backsOffWhenWebFilterChainProxyBeanPresent() {
 		this.contextRunner
-				.withUserConfiguration(WebFilterChainProxyConfiguration.class,
-						WebFluxSecurityConfiguration.class)
+				.withConfiguration(
+						AutoConfigurations.of(ReactiveSecurityAutoConfiguration.class))
+				.withUserConfiguration(WebFilterChainProxyConfiguration.class)
 				.run((context) -> assertThat(context)
 						.doesNotHaveBean(WebFluxSecurityConfiguration.class));
 	}
@@ -68,4 +69,5 @@ public class WebFluxSecurityConfigurationTests {
 		}
 
 	}
+
 }

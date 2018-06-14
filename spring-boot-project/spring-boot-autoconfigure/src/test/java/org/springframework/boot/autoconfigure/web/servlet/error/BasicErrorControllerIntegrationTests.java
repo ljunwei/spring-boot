@@ -51,6 +51,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -168,6 +169,7 @@ public class BasicErrorControllerIntegrationTests {
 		load("--server.error.include-exception=true");
 		RequestEntity request = RequestEntity
 				.post(URI.create(createUrl("/bodyValidation")))
+				.accept(MediaType.APPLICATION_JSON)
 				.contentType(MediaType.APPLICATION_JSON).body("{}");
 		ResponseEntity<Map> entity = new TestRestTemplate().exchange(request, Map.class);
 		String resp = entity.getBody().toString();
@@ -228,14 +230,13 @@ public class BasicErrorControllerIntegrationTests {
 			args.addAll(Arrays.asList(arguments));
 		}
 		this.context = SpringApplication.run(TestConfiguration.class,
-				args.toArray(new String[args.size()]));
+				StringUtils.toStringArray(args));
 	}
 
 	@Target(ElementType.TYPE)
 	@Retention(RetentionPolicy.RUNTIME)
 	@Documented
-	@Import({ ServletWebServerFactoryAutoConfiguration.EmbeddedTomcat.class,
-			ServletWebServerFactoryAutoConfiguration.class,
+	@Import({ ServletWebServerFactoryAutoConfiguration.class,
 			DispatcherServletAutoConfiguration.class, WebMvcAutoConfiguration.class,
 			HttpMessageConvertersAutoConfiguration.class, ErrorMvcAutoConfiguration.class,
 			PropertyPlaceholderAutoConfiguration.class })

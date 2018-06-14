@@ -21,13 +21,14 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
+import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration;
-import org.springframework.boot.actuate.autoconfigure.metrics.MetricsEndpointAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,20 +43,20 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @AutoConfigureAfter(MetricsAutoConfiguration.class)
-@AutoConfigureBefore(MetricsEndpointAutoConfiguration.class)
+@AutoConfigureBefore(CompositeMeterRegistryAutoConfiguration.class)
 @ConditionalOnBean(Clock.class)
 @EnableConfigurationProperties(SimpleProperties.class)
 @ConditionalOnMissingBean(MeterRegistry.class)
+@ConditionalOnProperty(prefix = "management.metrics.export.simple", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SimpleMetricsExportAutoConfiguration {
 
 	@Bean
-	@ConditionalOnMissingBean(MeterRegistry.class)
 	public SimpleMeterRegistry simpleMeterRegistry(SimpleConfig config, Clock clock) {
 		return new SimpleMeterRegistry(config, clock);
 	}
 
 	@Bean
-	@ConditionalOnMissingBean(SimpleConfig.class)
+	@ConditionalOnMissingBean
 	public SimpleConfig simpleConfig(SimpleProperties simpleProperties) {
 		return new SimplePropertiesConfigAdapter(simpleProperties);
 	}

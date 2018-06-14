@@ -16,7 +16,6 @@
 
 package org.springframework.boot.actuate.endpoint.web.reactive;
 
-import java.security.Principal;
 import java.util.Arrays;
 
 import org.junit.Test;
@@ -31,21 +30,21 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.reactive.error.ErrorWebFluxAutoConfiguration;
 import org.springframework.boot.web.embedded.netty.NettyReactiveWebServerFactory;
 import org.springframework.boot.web.reactive.context.AnnotationConfigReactiveWebServerApplicationContext;
-import org.springframework.boot.web.reactive.context.ReactiveWebServerApplicationContext;
 import org.springframework.boot.web.reactive.context.ReactiveWebServerInitializedEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.HttpHandler;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.reactive.config.EnableWebFlux;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebExchangeDecorator;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import org.springframework.web.server.adapter.WebHttpHandlerBuilder;
@@ -58,11 +57,24 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Andy Wilkinson
  * @see WebFluxEndpointHandlerMapping
  */
-public class WebFluxEndpointIntegrationTests
-		extends AbstractWebEndpointIntegrationTests<ReactiveWebServerApplicationContext> {
+public class WebFluxEndpointIntegrationTests extends
+		AbstractWebEndpointIntegrationTests<AnnotationConfigReactiveWebServerApplicationContext> {
 
 	public WebFluxEndpointIntegrationTests() {
-		super(ReactiveConfiguration.class);
+		super(WebFluxEndpointIntegrationTests::createApplicationContext,
+				WebFluxEndpointIntegrationTests::applyAuthenticatedConfiguration);
+
+	}
+
+	private static AnnotationConfigReactiveWebServerApplicationContext createApplicationContext() {
+		AnnotationConfigReactiveWebServerApplicationContext context = new AnnotationConfigReactiveWebServerApplicationContext();
+		context.register(ReactiveConfiguration.class);
+		return context;
+	}
+
+	private static void applyAuthenticatedConfiguration(
+			AnnotationConfigReactiveWebServerApplicationContext context) {
+		context.register(AuthenticatedConfiguration.class);
 	}
 
 	@Test
@@ -89,21 +101,8 @@ public class WebFluxEndpointIntegrationTests
 	}
 
 	@Override
-	protected AnnotationConfigReactiveWebServerApplicationContext createApplicationContext(
-			Class<?>... config) {
-		AnnotationConfigReactiveWebServerApplicationContext context = new AnnotationConfigReactiveWebServerApplicationContext();
-		context.register(config);
-		return context;
-	}
-
-	@Override
-	protected int getPort(ReactiveWebServerApplicationContext context) {
+	protected int getPort(AnnotationConfigReactiveWebServerApplicationContext context) {
 		return context.getBean(ReactiveConfiguration.class).port;
-	}
-
-	@Override
-	protected Class<?> getSecuredPrincipalEndpointConfiguration() {
-		return SecuredPrincipalEndpointConfiguration.class;
 	}
 
 	@Configuration
@@ -144,8 +143,8 @@ public class WebFluxEndpointIntegrationTests
 
 	}
 
-	@Import(PrincipalEndpointConfiguration.class)
-	static class SecuredPrincipalEndpointConfiguration {
+	@Configuration
+	static class AuthenticatedConfiguration {
 
 		@Bean
 		public WebFilter webFilter() {
@@ -154,34 +153,15 @@ public class WebFluxEndpointIntegrationTests
 				@Override
 				public Mono<Void> filter(ServerWebExchange exchange,
 						WebFilterChain chain) {
-					return chain.filter(
-							new MockPrincipalServerWebExchangeDecorator(exchange));
+					return chain.filter(exchange).subscriberContext(
+							ReactiveSecurityContextHolder.withAuthentication(
+									new UsernamePasswordAuthenticationToken("Alice",
+											"secret",
+											Arrays.asList(new SimpleGrantedAuthority(
+													"ROLE_ACTUATOR")))));
 				}
 
 			};
-		}
-
-	}
-
-	private static class MockPrincipalServerWebExchangeDecorator
-			extends ServerWebExchangeDecorator {
-
-		MockPrincipalServerWebExchangeDecorator(ServerWebExchange delegate) {
-			super(delegate);
-		}
-
-		@Override
-		public Mono<Principal> getPrincipal() {
-			return Mono.just(new MockPrincipal());
-		}
-
-	}
-
-	private static class MockPrincipal implements Principal {
-
-		@Override
-		public String getName() {
-			return "Alice";
 		}
 
 	}

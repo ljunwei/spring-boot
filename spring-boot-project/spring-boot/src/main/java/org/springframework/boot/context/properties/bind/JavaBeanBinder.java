@@ -23,9 +23,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.springframework.beans.BeanUtils;
+import org.springframework.boot.context.properties.bind.Binder.Context;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName;
 import org.springframework.boot.context.properties.source.ConfigurationPropertyState;
 import org.springframework.core.MethodParameter;
@@ -40,8 +42,8 @@ import org.springframework.core.ResolvableType;
 class JavaBeanBinder implements BeanBinder {
 
 	@Override
-	public <T> T bind(ConfigurationPropertyName name, Bindable<T> target,
-			BindContext context, BeanPropertyBinder propertyBinder) {
+	public <T> T bind(ConfigurationPropertyName name, Bindable<T> target, Context context,
+			BeanPropertyBinder propertyBinder) {
 		boolean hasKnownBindableProperties = context.streamSources().anyMatch((
 				s) -> s.containsDescendantOf(name) == ConfigurationPropertyState.PRESENT);
 		Bean<T> bean = Bean.get(target, hasKnownBindableProperties);
@@ -117,28 +119,28 @@ class JavaBeanBinder implements BeanBinder {
 		}
 
 		private boolean isCandidate(Method method) {
-			return Modifier.isPublic(method.getModifiers())
+			int modifiers = method.getModifiers();
+			return Modifier.isPublic(modifiers) && !Modifier.isAbstract(modifiers)
+					&& !Modifier.isStatic(modifiers)
 					&& !Object.class.equals(method.getDeclaringClass())
 					&& !Class.class.equals(method.getDeclaringClass());
 		}
 
 		private void addMethod(Method method) {
-			String name = method.getName();
-			int parameterCount = method.getParameterCount();
-			if (name.startsWith("get") && parameterCount == 0) {
-				name = Introspector.decapitalize(name.substring(3));
-				this.properties.computeIfAbsent(name, this::getBeanProperty)
-						.addGetter(method);
-			}
-			else if (name.startsWith("is") && parameterCount == 0) {
-				name = Introspector.decapitalize(name.substring(2));
-				this.properties.computeIfAbsent(name, this::getBeanProperty)
-						.addGetter(method);
-			}
-			else if (name.startsWith("set") && parameterCount == 1) {
-				name = Introspector.decapitalize(name.substring(3));
-				this.properties.computeIfAbsent(name, this::getBeanProperty)
-						.addSetter(method);
+			addMethodIfPossible(method, "get", 0, BeanProperty::addGetter);
+			addMethodIfPossible(method, "is", 0, BeanProperty::addGetter);
+			addMethodIfPossible(method, "set", 1, BeanProperty::addSetter);
+		}
+
+		private void addMethodIfPossible(Method method, String prefix, int parameterCount,
+				BiConsumer<BeanProperty, Method> consumer) {
+			if (method.getParameterCount() == parameterCount
+					&& method.getName().startsWith(prefix)
+					&& method.getName().length() > prefix.length()) {
+				String propertyName = Introspector
+						.decapitalize(method.getName().substring(prefix.length()));
+				consumer.accept(this.properties.computeIfAbsent(propertyName,
+						this::getBeanProperty), method);
 			}
 		}
 
@@ -285,7 +287,7 @@ class JavaBeanBinder implements BeanBinder {
 
 		public Annotation[] getAnnotations() {
 			try {
-				return (this.field == null ? null : this.field.getDeclaredAnnotations());
+				return (this.field != null ? this.field.getDeclaredAnnotations() : null);
 			}
 			catch (Exception ex) {
 				return null;

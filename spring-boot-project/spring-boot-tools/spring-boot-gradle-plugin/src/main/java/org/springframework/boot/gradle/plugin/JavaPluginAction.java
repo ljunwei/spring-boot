@@ -140,17 +140,16 @@ final class JavaPluginAction implements PluginApplicationAction {
 	}
 
 	private void configureAdditionalMetadataLocations(Project project) {
-		project.afterEvaluate((evaluated) ->
-			evaluated.getTasks().withType(JavaCompile.class,
-					this::configureAdditionalMetadataLocations));
+		project.afterEvaluate((evaluated) -> evaluated.getTasks()
+				.withType(JavaCompile.class, this::configureAdditionalMetadataLocations));
 	}
 
 	private void configureAdditionalMetadataLocations(JavaCompile compile) {
 		compile.doFirst((task) -> {
 			if (hasConfigurationProcessorOnClasspath(compile)) {
-				findMatchingSourceSet(compile).ifPresent((sourceSet) -> {
-					configureAdditionalMetadataLocations(compile, sourceSet);
-				});
+				findMatchingSourceSet(compile).ifPresent(
+						(sourceSet) -> configureAdditionalMetadataLocations(compile,
+								sourceSet));
 			}
 		});
 	}
@@ -163,12 +162,11 @@ final class JavaPluginAction implements PluginApplicationAction {
 	}
 
 	private boolean hasConfigurationProcessorOnClasspath(JavaCompile compile) {
-		Set<File> files = compile.getOptions().getAnnotationProcessorPath() != null
+		Set<File> files = (compile.getOptions().getAnnotationProcessorPath() != null
 				? compile.getOptions().getAnnotationProcessorPath().getFiles()
-				: compile.getClasspath().getFiles();
-		return files.stream().map(File::getName)
-				.filter((name) -> name.startsWith("spring-boot-configuration-processor"))
-				.findFirst().isPresent();
+				: compile.getClasspath().getFiles());
+		return files.stream().map(File::getName).anyMatch(
+				(name) -> name.startsWith("spring-boot-configuration-processor"));
 	}
 
 	private void configureAdditionalMetadataLocations(JavaCompile compile,

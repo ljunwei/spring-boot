@@ -39,6 +39,12 @@ import org.springframework.util.ReflectionUtils;
  */
 public class ConfigurationBeanFactoryMetadata implements BeanFactoryPostProcessor {
 
+	/**
+	 * The bean name that this class is registered with.
+	 */
+	public static final String BEAN_NAME = ConfigurationBeanFactoryMetadata.class
+			.getName();
+
 	private ConfigurableListableBeanFactory beanFactory;
 
 	private final Map<String, FactoryMetadata> beansFactoryMetadata = new HashMap<>();
@@ -71,7 +77,7 @@ public class ConfigurationBeanFactoryMetadata implements BeanFactoryPostProcesso
 	public <A extends Annotation> A findFactoryAnnotation(String beanName,
 			Class<A> type) {
 		Method method = findFactoryMethod(beanName);
-		return (method == null ? null : AnnotationUtils.findAnnotation(method, type));
+		return (method != null ? AnnotationUtils.findAnnotation(method, type) : null);
 	}
 
 	public Method findFactoryMethod(String beanName) {

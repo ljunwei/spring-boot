@@ -131,7 +131,7 @@ public final class ConfigurationPropertyName
 	 */
 	public String getLastElement(Form form) {
 		int size = getNumberOfElements();
-		return (size == 0 ? EMPTY_STRING : getElement(size - 1, form));
+		return (size != 0 ? getElement(size - 1, form) : EMPTY_STRING);
 	}
 
 	/**
@@ -316,7 +316,7 @@ public final class ConfigurationPropertyName
 			else {
 				for (int i = 0; i < element.length(); i++) {
 					char ch = Character.toLowerCase(element.charAt(i));
-					result.append(ch == '_' ? "" : ch);
+					result.append(ch != '_' ? ch : "");
 				}
 			}
 		}
@@ -460,8 +460,7 @@ public final class ConfigurationPropertyName
 				elements.add(elementValue);
 			}
 		});
-		return new ConfigurationPropertyName(
-				elements.toArray(new CharSequence[elements.size()]));
+		return new ConfigurationPropertyName(elements.toArray(new CharSequence[0]));
 	}
 
 	/**
@@ -508,8 +507,7 @@ public final class ConfigurationPropertyName
 				elements.add(elementValue);
 			}
 		});
-		return new ConfigurationPropertyName(
-				elements.toArray(new CharSequence[elements.size()]));
+		return new ConfigurationPropertyName(elements.toArray(new CharSequence[0]));
 	}
 
 	private static void process(CharSequence name, char separator,

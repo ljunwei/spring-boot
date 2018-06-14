@@ -29,11 +29,13 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
 import org.springframework.boot.autoconfigure.jersey.JerseyAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.servlet.DispatcherServlet;
 
 /**
  * Integration tests for the Jersey actuator endpoints.
@@ -44,8 +46,11 @@ public class JerseyEndpointIntegrationTests {
 
 	@Test
 	public void linksAreProvidedToAllEndpointTypes() throws Exception {
+		FilteredClassLoader classLoader = new FilteredClassLoader(
+				DispatcherServlet.class);
 		new WebApplicationContextRunner(
 				AnnotationConfigServletWebServerApplicationContext::new)
+						.withClassLoader(classLoader)
 						.withConfiguration(
 								AutoConfigurations.of(JacksonAutoConfiguration.class,
 										JerseyAutoConfiguration.class,
@@ -55,7 +60,7 @@ public class JerseyEndpointIntegrationTests {
 										ManagementContextAutoConfiguration.class,
 										BeansEndpointAutoConfiguration.class))
 						.withUserConfiguration(EndpointsConfiguration.class)
-						.withPropertyValues("management.endpoints.web.expose:*",
+						.withPropertyValues("management.endpoints.web.exposure.include:*",
 								"server.port:0")
 						.run((context) -> {
 							int port = context.getSourceApplicationContext(
@@ -65,8 +70,8 @@ public class JerseyEndpointIntegrationTests {
 									.baseUrl("http://localhost:" + port).build();
 							client.get().uri("/actuator").exchange().expectStatus().isOk()
 									.expectBody().jsonPath("_links.beans").isNotEmpty()
-									.jsonPath("_links.restcontroller").isNotEmpty()
-									.jsonPath("_links.controller").isNotEmpty();
+									.jsonPath("_links.restcontroller").doesNotExist()
+									.jsonPath("_links.controller").doesNotExist();
 						});
 	}
 

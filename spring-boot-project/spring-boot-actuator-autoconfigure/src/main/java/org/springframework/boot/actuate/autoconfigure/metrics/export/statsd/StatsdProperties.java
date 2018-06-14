@@ -33,9 +33,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class StatsdProperties {
 
 	/**
-	 * Export metrics to StatsD.
+	 * Whether exporting of metrics to StatsD is enabled.
 	 */
-	private Boolean enabled;
+	private boolean enabled = true;
 
 	/**
 	 * StatsD line protocol to use.
@@ -65,20 +65,15 @@ public class StatsdProperties {
 	private Duration pollingFrequency = Duration.ofSeconds(10);
 
 	/**
-	 * Maximum size of the queue of items waiting to be sent to the StatsD server.
+	 * Whether to send unchanged meters to the StatsD server.
 	 */
-	private Integer queueSize = Integer.MAX_VALUE;
+	private boolean publishUnchangedMeters = true;
 
-	/**
-	 * Send unchanged meters to the StatsD server.
-	 */
-	private Boolean publishUnchangedMeters;
-
-	public Boolean getEnabled() {
+	public boolean isEnabled() {
 		return this.enabled;
 	}
 
-	public void setEnabled(Boolean enabled) {
+	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
 
@@ -122,19 +117,11 @@ public class StatsdProperties {
 		this.pollingFrequency = pollingFrequency;
 	}
 
-	public Integer getQueueSize() {
-		return this.queueSize;
-	}
-
-	public void setQueueSize(Integer queueSize) {
-		this.queueSize = queueSize;
-	}
-
-	public Boolean getPublishUnchangedMeters() {
+	public boolean isPublishUnchangedMeters() {
 		return this.publishUnchangedMeters;
 	}
 
-	public void setPublishUnchangedMeters(Boolean publishUnchangedMeters) {
+	public void setPublishUnchangedMeters(boolean publishUnchangedMeters) {
 		this.publishUnchangedMeters = publishUnchangedMeters;
 	}
 

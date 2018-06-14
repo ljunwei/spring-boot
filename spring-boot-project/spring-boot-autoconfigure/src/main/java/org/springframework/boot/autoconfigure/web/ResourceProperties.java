@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.PropertyMapper;
-import org.springframework.boot.context.properties.bind.convert.DefaultDurationUnit;
+import org.springframework.boot.convert.DurationUnit;
 import org.springframework.http.CacheControl;
 
 /**
@@ -112,10 +112,10 @@ public class ResourceProperties {
 		private boolean htmlApplicationCache = false;
 
 		/**
-		 * Whether to enable resolution of already gzipped resources. Checks for a
-		 * resource name variant with the "*.gz" extension.
+		 * Whether to enable resolution of already compressed resources. Checks for a
+		 * resource name with the '.gz' or '.br' file extensions.
 		 */
-		private boolean gzipped = false;
+		private boolean compressed = false;
 
 		private final Strategy strategy = new Strategy();
 
@@ -154,12 +154,12 @@ public class ResourceProperties {
 			this.htmlApplicationCache = htmlApplicationCache;
 		}
 
-		public boolean isGzipped() {
-			return this.gzipped;
+		public boolean isCompressed() {
+			return this.compressed;
 		}
 
-		public void setGzipped(boolean gzipped) {
-			this.gzipped = gzipped;
+		public void setCompressed(boolean compressed) {
+			this.compressed = compressed;
 		}
 
 		static Boolean getEnabled(boolean fixedEnabled, boolean contentEnabled,
@@ -277,7 +277,7 @@ public class ResourceProperties {
 		 * suffix is not specified, seconds will be used. Can be overridden by the
 		 * 'spring.resources.cache.cachecontrol' properties.
 		 */
-		@DefaultDurationUnit(ChronoUnit.SECONDS)
+		@DurationUnit(ChronoUnit.SECONDS)
 		private Duration period;
 
 		/**
@@ -307,7 +307,7 @@ public class ResourceProperties {
 			 * Maximum time the response should be cached, in seconds if no duration
 			 * suffix is not specified.
 			 */
-			@DefaultDurationUnit(ChronoUnit.SECONDS)
+			@DurationUnit(ChronoUnit.SECONDS)
 			private Duration maxAge;
 
 			/**
@@ -354,21 +354,21 @@ public class ResourceProperties {
 			 * Maximum time the response can be served after it becomes stale, in seconds
 			 * if no duration suffix is not specified.
 			 */
-			@DefaultDurationUnit(ChronoUnit.SECONDS)
+			@DurationUnit(ChronoUnit.SECONDS)
 			private Duration staleWhileRevalidate;
 
 			/**
 			 * Maximum time the response may be used when errors are encountered, in
 			 * seconds if no duration suffix is not specified.
 			 */
-			@DefaultDurationUnit(ChronoUnit.SECONDS)
+			@DurationUnit(ChronoUnit.SECONDS)
 			private Duration staleIfError;
 
 			/**
 			 * Maximum time the response should be cached by shared caches, in seconds if
 			 * no duration suffix is not specified.
 			 */
-			@DefaultDurationUnit(ChronoUnit.SECONDS)
+			@DurationUnit(ChronoUnit.SECONDS)
 			private Duration sMaxAge;
 
 			public Duration getMaxAge() {
